@@ -64,20 +64,20 @@ _confirm_submission_overwrite:
     @echo "Overwriting existing submission/submission.zip file."
     rm -f "{{WORKING_DIR}}/submission/submission.zip"
 
-# Pack submission_src/ into submission/submission.zip
+# Pack src/ into submission/submission.zip
 [group('* test submission locally')]
 pack-submission:
     #!/usr/bin/env bash
     shopt -s nullglob
-    files=(submission_src/*)
+    files=(src/*)
     if (( ${#files[@]} == 0 )); then
-        echo "ERROR: submission_src/ directory is empty. Cannot create submission.zip with no files.";
+        echo "ERROR: src/ directory is empty. Cannot create submission.zip with no files.";
         exit 1
     fi
     if [ -f "{{WORKING_DIR}}/submission/submission.zip" ]; then
         just _confirm_submission_overwrite;
     fi
-    cd submission_src && uvx rpzip -r "{{WORKING_DIR}}/submission/submission.zip" ./*
+    cd src && uvx rpzip -r "{{WORKING_DIR}}/submission/submission.zip" ./*
 
 # Check contents of current submission.zip file
 [group('* test submission locally')]
