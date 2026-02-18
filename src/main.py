@@ -33,7 +33,7 @@ def main():
 
     # Load model
     src_root = Path(__file__).parent.resolve()
-    model_path = src_root / "parakeet-tdt-0.6b-v2" / "parakeet-tdt-0.6b-v2.nemo"
+    model_path = src_root / "assets" / "parakeet-tdt-0.6b-v2" / "parakeet-tdt-0.6b-v2.nemo"
     logger.info(f"Loading model from: {model_path}")
     model = ParakeetModel.load(model_path)
 
@@ -76,7 +76,7 @@ def main():
     logger.success("Transcription complete.")
 
     # Write submission file
-    submission_format_path = data_dir / "submission_format.jsonl"
+    submission_format_path = data_dir / "submission_format_smoketest.jsonl"
     submission_path = Path("submission") / "submission.jsonl"
     logger.info(f"Writing submission file to {submission_path}")
     with submission_format_path.open("r") as fr, submission_path.open("w") as fw:

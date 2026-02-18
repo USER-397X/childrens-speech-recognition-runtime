@@ -95,6 +95,7 @@ check-submission:
 [group('* test submission locally')]
 run: _validate_track
     docker run \
+        --gpus all \
         --rm \
         {{MOUNT_DATA}} \
         {{MOUNT_SUBMISSION}} \
@@ -106,6 +107,7 @@ run: _validate_track
 [group('* test submission locally')]
 interact: _validate_track
     docker run -it \
+        --gpus all \
         --rm \
         {{MOUNT_DATA}} \
         {{MOUNT_SUBMISSION}} \
@@ -147,6 +149,7 @@ dev-run: _validate_track
 [group('development')]
 dev-interact: _validate_track
     docker run -it \
+        --gpus all \
         --rm \
         {{MOUNT_DATA}} \
         {{MOUNT_SUBMISSION}} \
@@ -188,6 +191,7 @@ test-run:
 [group('development')]
 test-interact:
     docker run -it \
+        --gpus all \
         --rm \
         {{NETWORK_ARGS}} \
         "{{LOCAL_TEST_IMAGE_REF}}" \
