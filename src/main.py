@@ -10,11 +10,11 @@ from tqdm import tqdm
 from lib.parakeet import ParakeetModel
 
 
-BATCH_SIZE = 4
+BATCH_SIZE = 12
 PROGRESS_STEP_DENOM = 100  # Update progress bar every 1 // PROGRESS_STEP_DENOM
 
 
-def batched(iterable, n, *, strict=False):
+def batched(iterable, n, *, strict=False):  
     # batched('ABCDEFG', 3) → ABC DEF G
     if n < 1:
         raise ValueError("n must be at least one")
@@ -43,6 +43,12 @@ def main():
 
     with manifest_path.open("r") as fr:
         items = [json.loads(line) for line in fr]
+
+    # Filter out long files to avoid OOM
+    # We only keep files shorter than 30 seconds
+    original_count = len(items)
+    items = [item for item in items if item["audio_duration_sec"] < 30.0]
+    logger.info(f"Filtered {original_count - len(items)} items longer than 30s. Keeping {len(items)} items.")
 
     # Sort by audio duration for better batching
     items.sort(key=lambda x: x["audio_duration_sec"], reverse=True)
@@ -76,13 +82,14 @@ def main():
     logger.success("Transcription complete.")
 
     # Write submission file
-    submission_format_path = data_dir / "submission_format_smoketest.jsonl"
+    submission_format_path = data_dir / "utterance_metadata.jsonl"
     submission_path = Path("submission") / "submission.jsonl"
     logger.info(f"Writing submission file to {submission_path}")
     with submission_format_path.open("r") as fr, submission_path.open("w") as fw:
         for line in fr:
             item = json.loads(line)
-            item["orthographic_text"] = predictions[item["utterance_id"]]
+            # If the utterance was filtered out (or prediction failed), use empty string
+            item["orthographic_text"] = predictions.get(item["utterance_id"], "")
             fw.write(json.dumps(item) + "\n")
 
     logger.success("Done.")

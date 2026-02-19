@@ -6,3 +6,4 @@ submission/
 submission_src/
 !submission_src/.gitkeep
 
+.agent/rules/*
