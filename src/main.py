@@ -8,9 +8,10 @@ import torch
 from tqdm import tqdm
 
 from lib.parakeet import ParakeetModel
+from lib.canary_qwen import CanaryQwenModel
 
 
-BATCH_SIZE = 12
+BATCH_SIZE = 4
 PROGRESS_STEP_DENOM = 100  # Update progress bar every 1 // PROGRESS_STEP_DENOM
 
 
@@ -31,11 +32,14 @@ def main():
     logger.info("CUDA available: {}", torch.cuda.is_available())
     logger.info("CUDA device count: {}", torch.cuda.device_count())
 
-    # Load model
-    src_root = Path(__file__).parent.resolve()
-    model_path = src_root / "assets" / "parakeet-tdt-0.6b-v2" / "parakeet-tdt-0.6b-v2.nemo"
-    logger.info(f"Loading model from: {model_path}")
-    model = ParakeetModel.load(model_path)
+    # # Load Parakeet model
+    # src_root = Path(__file__).parent.resolve()
+    # model_path = src_root / "assets" / "parakeet-tdt-0.6b-v2" / "parakeet-tdt-0.6b-v2.nemo"
+    # logger.info(f"Loading model from: {model_path}")
+    # model = ParakeetModel.load(model_path)
+
+    # Load Canary Qwen model
+    model = CanaryQwenModel.load()
 
     # Load manifest and process data
     data_dir = Path("data")
@@ -46,9 +50,9 @@ def main():
 
     # Filter out long files to avoid OOM
     # We only keep files shorter than 30 seconds
-    original_count = len(items)
-    items = [item for item in items if item["audio_duration_sec"] < 30.0]
-    logger.info(f"Filtered {original_count - len(items)} items longer than 30s. Keeping {len(items)} items.")
+    # original_count = len(items)
+    # items = [item for item in items if item["audio_duration_sec"] < 30.0]
+    # logger.info(f"Filtered {original_count - len(items)} items longer than 30s. Keeping {len(items)} items.")
 
     # Sort by audio duration for better batching
     items.sort(key=lambda x: x["audio_duration_sec"], reverse=True)
@@ -82,7 +86,7 @@ def main():
     logger.success("Transcription complete.")
 
     # Write submission file
-    submission_format_path = data_dir / "utterance_metadata.jsonl"
+    submission_format_path = data_dir / "submission_format.jsonl"
     submission_path = Path("submission") / "submission.jsonl"
     logger.info(f"Writing submission file to {submission_path}")
     with submission_format_path.open("r") as fr, submission_path.open("w") as fw:

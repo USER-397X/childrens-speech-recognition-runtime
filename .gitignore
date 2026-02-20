@@ -7,3 +7,5 @@ submission_src/
 !submission_src/.gitkeep
 
 .agent/rules/*
+lightning_logs/
+src/lib/__pycache__
