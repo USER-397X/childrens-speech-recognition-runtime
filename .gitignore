@@ -9,3 +9,4 @@ submission_src/
 .agent/rules/*
 lightning_logs/
 src/lib/__pycache__
+src/assets

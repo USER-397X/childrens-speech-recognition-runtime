@@ -18,7 +18,7 @@ def main():
     model.train(
         train_manifest=train_manifest,
         val_manifest=val_manifest,
-        epochs=5,
+        epochs=3,
         batch_size=2
     )
 

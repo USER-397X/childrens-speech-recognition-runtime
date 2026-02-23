@@ -32,14 +32,12 @@ def main():
     logger.info("CUDA available: {}", torch.cuda.is_available())
     logger.info("CUDA device count: {}", torch.cuda.device_count())
 
-    # # Load Parakeet model
-    # src_root = Path(__file__).parent.resolve()
-    # model_path = src_root / "assets" / "parakeet-tdt-0.6b-v2" / "parakeet-tdt-0.6b-v2.nemo"
-    # logger.info(f"Loading model from: {model_path}")
-    # model = ParakeetModel.load(model_path)
-
     # Load Canary Qwen model
-    model = CanaryQwenModel.load()
+    src_root = Path(__file__).parent.resolve()
+    model_dir = src_root / "assets" / "canary-qwen"
+    
+    logger.info(f"Loading Canary Qwen offline...")
+    model = CanaryQwenModel.load(model_dir=model_dir)
 
     # Load manifest and process data
     data_dir = Path("data")
@@ -47,12 +45,6 @@ def main():
 
     with manifest_path.open("r") as fr:
         items = [json.loads(line) for line in fr]
-
-    # Filter out long files to avoid OOM
-    # We only keep files shorter than 30 seconds
-    # original_count = len(items)
-    # items = [item for item in items if item["audio_duration_sec"] < 30.0]
-    # logger.info(f"Filtered {original_count - len(items)} items longer than 30s. Keeping {len(items)} items.")
 
     # Sort by audio duration for better batching
     items.sort(key=lambda x: x["audio_duration_sec"], reverse=True)
