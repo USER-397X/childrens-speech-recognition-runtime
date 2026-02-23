@@ -11,7 +11,7 @@ from lib.parakeet import ParakeetModel
 from lib.canary_qwen import CanaryQwenModel
 
 
-BATCH_SIZE = 4
+BATCH_SIZE = 64
 PROGRESS_STEP_DENOM = 100  # Update progress bar every 1 // PROGRESS_STEP_DENOM
 
 

@@ -30,7 +30,7 @@ class CanaryQwenModel:
         
         # Load the model directly from the local directory
         # We load in bfloat16 to save memory and set it to evaluation mode for inference
-        model = SALM.from_pretrained(model_dir).bfloat16().eval()   .to(device)
+        model = SALM.from_pretrained(model_dir).bfloat16().eval().to(device)
         
         logger.info("Model loaded successfully.")
         return cls(model)
@@ -53,10 +53,10 @@ class CanaryQwenModel:
                 prompts.append(conversation)
                 
             # Run the generation
-            with torch.no_grad():
+            with torch.inference_mode():
                 answer_ids = self.model.generate(
                     prompts=prompts,
-                    max_new_tokens=256,
+                    max_new_tokens=64,
                 )
                 
             # Decode the token IDs back into text
