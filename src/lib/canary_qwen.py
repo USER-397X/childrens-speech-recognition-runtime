@@ -14,11 +14,23 @@ class CanaryQwenModel:
         
         # Force NeMo to skip Hugging Face hub checks
         os.environ['HF_HUB_OFFLINE'] = '1'
+        os.environ['TRANSFORMERS_OFFLINE'] = '1'
+        
+        # Check GPU availability and assign model to the second GPU if available
+        if torch.cuda.is_available():
+            if torch.cuda.device_count() > 1:
+                device = torch.device("cuda:1")
+                logger.info("Multiple GPUs detected. Assigning model to the SECOND GPU (cuda:1).")
+            else:
+                device = torch.device("cuda:0")
+                logger.info("Only one GPU detected. Assigning model to the FIRST GPU (cuda:0).")
+        else:
+            device = torch.device("cpu")
+            logger.info("No GPU found. Falling back to CPU.")
         
         # Load the model directly from the local directory
         # We load in bfloat16 to save memory and set it to evaluation mode for inference
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        model = SALM.from_pretrained(model_dir).bfloat16().eval().to(device)
+        model = SALM.from_pretrained(model_dir).bfloat16().eval()   .to(device)
         
         logger.info("Model loaded successfully.")
         return cls(model)
