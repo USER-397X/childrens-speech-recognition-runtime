@@ -56,7 +56,7 @@ class CanaryQwenModel:
             with torch.inference_mode():
                 answer_ids = self.model.generate(
                     prompts=prompts,
-                    max_new_tokens=64,
+                    max_new_tokens=128,
                 )
                 
             # Decode the token IDs back into text

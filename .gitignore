@@ -10,3 +10,6 @@ submission_src/
 lightning_logs/
 src/lib/__pycache__
 src/assets
+
+exploration/
+output/

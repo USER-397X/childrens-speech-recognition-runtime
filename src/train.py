@@ -1,26 +1,31 @@
 from pathlib import Path
-from lib.parakeet import ParakeetModel
+from loguru import logger
+from tqdm import tqdm
 
-def main():
-    src_root = Path(__file__).parent.resolve()
-    model_path = src_root / "assets" / "parakeet-tdt-0.6b-v2" / "parakeet-tdt-0.6b-v2.nemo"
-    
-    # 1. Load the base model
-    model = ParakeetModel.load(model_path)
-    
-    # 2. Define manifest paths
-    # Note: See Step 3 below about formatting these files!
-    data_dir = Path("data")
-    train_manifest = data_dir / "train_nemo_manifest.jsonl"
-    val_manifest = data_dir / "val_nemo_manifest.jsonl"
-    
-    # 3. Start training
-    model.train(
-        train_manifest=train_manifest,
-        val_manifest=val_manifest,
-        epochs=3,
-        batch_size=2
-    )
+import torch
+from omegaconf import OmegaConf, open_dict
+from pytorch_lightning import Trainer
+
+import nemo.collections.asr as nemo_asr
+
+from nemo.collections.speechlm2.models import SALM
+from lib.canary_qwen import CanaryQwenModel
+
+# Uncomment to save the model in local files
+# model = SALM.from_pretrained('nvidia/canary-qwen-2.5b')
+# model.save_pretrained('assets/canary-qwen')               
+
+# Load Canary Qwen model
+src_root = Path(__file__).parent.resolve()
+model_dir = src_root / "assets" / "canary-qwen"
+model = SALM.from_pretrained(model_dir)
+
+print(model.cfg)
+
+
+def train():
+    pass
 
 if __name__ == "__main__":
-    main()
+    train()
+

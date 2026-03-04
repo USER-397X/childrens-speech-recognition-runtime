@@ -1,21 +1,25 @@
 from itertools import islice
 import json
 import os
+import sys
 from pathlib import Path
+
+project_root = Path(__file__).parent.parent.resolve()
+sys.path.append(str(project_root))
 
 from loguru import logger
 import torch
 from tqdm import tqdm
 
 from lib.parakeet import ParakeetModel
-from lib.canary_qwen import CanaryQwenModel
+from metric.score import score_wer
 
 
-BATCH_SIZE = 8
+BATCH_SIZE = 4
 PROGRESS_STEP_DENOM = 100  # Update progress bar every 1 // PROGRESS_STEP_DENOM
 
 
-def batched(iterable, n, *, strict=False):  
+def batched(iterable, n, *, strict=False):
     # batched('ABCDEFG', 3) → ABC DEF G
     if n < 1:
         raise ValueError("n must be at least one")
@@ -32,29 +36,29 @@ def main():
     logger.info("CUDA available: {}", torch.cuda.is_available())
     logger.info("CUDA device count: {}", torch.cuda.device_count())
 
-    # Load Canary Qwen model
+    # Load model
     src_root = Path(__file__).parent.resolve()
-    model_dir = src_root / "assets" / "canary-qwen"
-    
-    logger.info(f"Loading Canary Qwen offline...")
-    model = CanaryQwenModel.load(model_dir=model_dir)
+    model_path = src_root / "assets" / "parakeet-tdt-0.6b-v2" / "parakeet-tdt-0.6b-v2.nemo"
+    logger.info(f"Loading model from: {model_path}")
+    model = ParakeetModel.load(model_path)
 
     # Load manifest and process data
-    data_dir = Path("data")
-    manifest_path = data_dir / "utterance_metadata.jsonl"
+    data_dir = project_root / "data"
+    manifest_path = data_dir / "val_manifest.jsonl"
 
     with manifest_path.open("r") as fr:
         items = [json.loads(line) for line in fr]
 
     # Sort by audio duration for better batching
-    items.sort(key=lambda x: x["audio_duration_sec"], reverse=True)
+    items.sort(key=lambda x: x["duration"], reverse=True)
 
     logger.info(f"Processing {len(items)} utterances from {manifest_path}")
 
     step = max(1, len(items) // PROGRESS_STEP_DENOM)
 
     # Predict
-    predictions = {}
+    actuals = []
+    predictions = []
     next_log = step
     processed = 0
     logger.info("Starting transcription...")
@@ -62,12 +66,11 @@ def main():
         with tqdm(total=len(items), file=devnull) as pbar:
             for batch in batched(items, BATCH_SIZE):
                 preds = model.predict_batch(
-                    # audio_path includes audio/ prefix
-                    [data_dir / item["audio_path"] for item in batch],
+                    [item["audio_filepath"] for item in batch],
                     batch_size=len(batch),
                 )
-                for item, pred in zip(batch, preds):
-                    predictions[item["utterance_id"]] = pred
+                actuals.extend([item["text"] for item in batch])
+                predictions.extend(preds)
                 this_batch_size = len(batch)
                 pbar.update(this_batch_size)
                 processed += this_batch_size
@@ -77,16 +80,8 @@ def main():
 
     logger.success("Transcription complete.")
 
-    # Write submission file
-    submission_format_path = data_dir / "submission_format.jsonl"
-    submission_path = Path("submission") / "submission.jsonl"
-    logger.info(f"Writing submission file to {submission_path}")
-    with submission_format_path.open("r") as fr, submission_path.open("w") as fw:
-        for line in fr:
-            item = json.loads(line)
-            # If the utterance was filtered out (or prediction failed), use empty string
-            item["orthographic_text"] = predictions.get(item["utterance_id"], "")
-            fw.write(json.dumps(item) + "\n")
+    wer = score_wer(actuals, predictions)
+    logger.info(f"Validation WER: {wer:.4f}")
 
     logger.success("Done.")
 

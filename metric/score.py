@@ -204,7 +204,7 @@ def score_ipa_cer(actual, predicted) -> float:
     return results
 
 
-def score_wer(actual, predicted):
+def score_wer_legacy(actual, predicted):
     """
     Calculate the Word Error Rate (WER) between predicted and actual sequences.
 
@@ -229,6 +229,26 @@ def score_wer(actual, predicted):
     normalized_refs = [normalizer(text) for text in actual]
     results = jiwer.wer(normalized_refs, normalized_preds)
     return results
+
+
+def score_wer(actual, predicted):
+    normalizer = EnglishTextNormalizer(english_spelling_normalizer)
+    
+    # Pre-normalize
+    normalized_refs = [normalizer(text) for text in actual]
+    normalized_preds = [normalizer(text) for text in predicted]
+    
+    # Filter: Only keep rows where the reference IS NOT empty after normalization
+    clean_pairs = [
+        (r, p) for r, p in zip(normalized_refs, normalized_preds) 
+        if r.strip() != ""
+    ]
+    
+    if not clean_pairs:
+        return 0.0
+        
+    final_refs, final_preds = zip(*clean_pairs)
+    return jiwer.wer(list(final_refs), list(final_preds))
 
 
 def score_jsonl(path_to_predicted: Path, path_to_actual: Path, metric="wer") -> float:
