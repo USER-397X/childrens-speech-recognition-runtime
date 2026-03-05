@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.10, <3.13"
 dependencies = [
     "ipykernel>=7.2.0",
+    "lhotse>=1.32.2",
     "loguru>=0.7.3",
     "nemo-toolkit[all,asr]>=2.6.2",
     "omegaconf>=2.3.0",

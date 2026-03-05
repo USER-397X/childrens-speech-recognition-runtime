@@ -10,6 +10,8 @@ sys.path.append(str(project_root))
 
 from metric.score import score_wer
 from lib.parakeet import ParakeetModel
+from lib.canary_qwen import CanaryQwenModel
+
 
 def batched(iterable, n):
     for i in range(0, len(iterable), n):
@@ -17,14 +19,18 @@ def batched(iterable, n):
 
 def main():
     logger.info("Starting validation evaluation")
-    src_root = project_root / "src"
-    model_dir = src_root / "assets" / "parakeet-tdt-0.6b-v2" / "parakeet-tdt-0.6b-v2.nemo"
-    
-    logger.info(f"Loading Parakeet offline from {model_dir}...")
-    model = ParakeetModel.load(model_path=model_dir)
 
+    src_root = project_root / "src"
     data_dir = project_root / "data"
     val_manifest = data_dir / "val_manifest.jsonl"
+
+    # model_dir = src_root / "assets" / "parakeet-tdt-0.6b-v2" / "parakeet-tdt-0.6b-v2.nemo"
+    # logger.info(f"Loading Parakeet offline from {model_dir}...")
+    # model = ParakeetModel.load(model_path=model_dir, train_path=train_manifest, val_path=val_manifest)
+
+    model_dir = src_root / "assets" / "canary-qwen"
+    logger.info(f"Loading Canary-Qwen offline from {model_dir}...")
+    model = CanaryQwenModel.load(model_dir=model_dir)
     
     items = []
     with open(val_manifest, "r") as f:
@@ -38,7 +44,7 @@ def main():
     # Sort by duration for better batching
     items.sort(key=lambda x: x.get("duration", 0), reverse=True)
     
-    batch_size = 16
+    batch_size = 8
     actuals = []
     predicteds = []
     

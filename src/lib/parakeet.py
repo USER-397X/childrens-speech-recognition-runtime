@@ -1,6 +1,8 @@
 from pathlib import Path
 from loguru import logger
 import nemo.collections.asr as nemo_asr
+from omegaconf import open_dict, OmegaConf
+
 
 
 class ParakeetModel:
@@ -8,9 +10,16 @@ class ParakeetModel:
         self.model = model
 
     @classmethod
-    def load(cls, model_path):
+    def load(cls, model_path, train_path, val_path):
         logger.info(f"Loading model from: {model_path}")
-        model = nemo_asr.models.ASRModel.restore_from(model_path)
+        # model = nemo_asr.models.ASRModel.restore_from(model_path)
+        model = nemo_asr.models.ASRModel.from_pretrained(model_name="nvidia/parakeet-tdt-0.6b-v2")
+        OmegaConf.set_struct(model.cfg.decoding, False)
+        decoding_cfg = model.cfg.decoding
+        decoding_cfg.greedy.use_cuda_graph_decoder = False
+        model.change_decoding_strategy(decoding_cfg=decoding_cfg)
+        OmegaConf.set_struct(model.cfg.decoding, True)
+
         return cls(model)
 
     def predict(self, audio_path: Path):
