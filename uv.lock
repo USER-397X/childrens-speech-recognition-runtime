@@ -686,6 +686,7 @@ dependencies = [
     { name = "pytorch-lightning" },
     { name = "sacrebleu" },
     { name = "text-unidecode" },
+    { name = "wandb" },
     { name = "wget" },
 ]
 
@@ -700,6 +701,7 @@ requires-dist = [
     { name = "pytorch-lightning", specifier = ">=2.6.1" },
     { name = "sacrebleu", specifier = ">=2.6.0" },
     { name = "text-unidecode", specifier = ">=1.3" },
+    { name = "wandb", specifier = ">=0.25.0" },
     { name = "wget", specifier = ">=3.2" },
 ]
 

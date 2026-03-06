@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from loguru import logger
 from tqdm import tqdm
@@ -13,7 +14,14 @@ from nemo.collections.speechlm2.models import SALM
 from nemo.collections.speechlm2.data import SALMDataset, DataModule
 from nemo.collections.common.parts.adapter_modules import LinearAdapterConfig
 
+from nemo.core.config import hydra_runner
+from nemo.utils.exp_manager import exp_manager
+from nemo.utils.trainer_utils import resolve_trainer_cfg
+
 from lib.canary_qwen import CanaryQwenModel
+
+#Attempted fix for OOM error
+os.environ["PYTORCH_ALLOC_CONF"] = "expandable_segments:True"
 
 # Uncomment to save the model in local files
 # model = SALM.from_pretrained('nvidia/canary-qwen-2.5b')
@@ -23,6 +31,14 @@ from lib.canary_qwen import CanaryQwenModel
 src_root = Path(__file__).parent.resolve()
 model_dir = src_root / "assets" / "canary-qwen"
 model = SALM.from_pretrained(model_dir)
+
+# Log all parameter names and their shapes
+for name, param in model.named_parameters():
+    print(f"Parameter: {name} | Shape: {param.shape}")
+
+# Log all module/layer names
+for name, module in model.named_modules():
+    print(f"Layer: {name}")
 
 # 1. Define the adapter configuration
 # Note: Your encoder's d_model is 1024, which the adapter mixin will fetch automatically,
@@ -73,7 +89,7 @@ print(f"Frozen parameters: {frozen_params:,}")
 # Expected output: Millions of frozen parameters, and a small fraction of trainable ones.
 
 
-def train():
+def train(cfg):
     # 1. Setup Checkpointing for your Adapters
     # This ensures we save the best versions of your model during training
     checkpoint_callback = ModelCheckpoint(
@@ -84,35 +100,46 @@ def train():
         save_weights_only=True # We only care about saving the small adapter weights!
     )
 
-    # 2. Initialize the Trainer
-    # We align the precision with the "bfloat16" torch_dtype from your config
+def train():
+    # 1. Setup Checkpointing
+    checkpoint_callback = ModelCheckpoint(
+        dirpath="./canary_adapter_checkpoints",
+        save_top_k=3,
+        monitor="val_loss", 
+        mode="min",
+        save_weights_only=True 
+    )
+
+    # 2. Initialize the Trainer (using official precision settings)
     trainer = Trainer(
         max_epochs=20,
         accelerator="gpu",
-        devices=1,               # Set to >1 if you have a multi-GPU setup
-        precision="bf16-mixed",  # Leverages the bfloat16 setup you configured
+        devices=[1],               
+        precision="16-mixed",   # Matched to official salm.yaml precision
         callbacks=[checkpoint_callback],
         log_every_n_steps=10,
-        accumulate_grad_batches=4, # Helpful if your GPU memory is tight
+        accumulate_grad_batches=8,
     )
 
+    # 3. Define Data Configs (Perfectly mirrored from official salm.yaml)
     train_data_config = {
         "sample_rate": 16000, 
-        "batch_size": 8, 
+        "batch_size": 1, 
+        "max_duration": 40.0,
         "shuffle": True,
         "num_workers": 4,
         "pin_memory": True,
         "drop_last": True, 
         
-        "use_lhotse": True,          
+        # ROOT-LEVEL parameters (Matched to salm.yaml)
+        "prompt_format": model.cfg.prompt_format, 
         "token_equivalent_duration": 0.08,        
         
         "input_cfg": [               
             {
                 "type": "lhotse_as_conversation", 
-                "manifest_filepath": "data/train_manifest.jsonl",
+                "manifest_filepath": "data/train_small_manifest.jsonl", # Pointing to your manifest
                 "audio_locator_tag": model.audio_locator_tag, 
-                "prompt_format": model.cfg.prompt_format,  # <--- MUST BE INSIDE THE LIST!
                 "tags": {
                     "context": "Transcribe the following:" 
                 }
@@ -122,40 +149,46 @@ def train():
 
     val_data_config = {
         "sample_rate": 16000,
-        "batch_size": 8,
+        "batch_size": 1,
         "shuffle": False, 
         "num_workers": 4,
         "pin_memory": True,
-        "drop_last": True, 
+        "drop_last": False, 
         
-        "use_lhotse": True,
+        # ROOT-LEVEL parameters (Matched to salm.yaml)
+        "prompt_format": model.cfg.prompt_format,
         "token_equivalent_duration": 0.08,
         
-        "input_cfg": [
-            {
-                "type": "lhotse_as_conversation",
-                "manifest_filepath": "data/val_manifest.jsonl",
-                "audio_locator_tag": model.audio_locator_tag,
-                "prompt_format": model.cfg.prompt_format,  # <--- MUST BE INSIDE THE LIST!
-                "tags": {
-                    "context": "Transcribe the following:"
-                }
+        # NESTED Validation structure (Matched to salm.yaml)
+        "datasets": {
+            "my_val_set": {
+                "input_cfg": [
+                    {
+                        "type": "lhotse_as_conversation",
+                        "manifest_filepath": "data/val_small_manifest.jsonl",
+                        "audio_locator_tag": model.audio_locator_tag,
+                        "tags": {
+                            "context": "Transcribe the following:"
+                        }
+                    }
+                ]
             }
-        ]
+        }
     }
 
-    # 1. Combine your configs into a single OmegaConf dictionary
+    # 4. Combine configs using OmegaConf
     data_config = OmegaConf.create({
         "train_ds": train_data_config,
         "validation_ds": val_data_config
     })
 
-    # 2. Initialize the dataset and DataModule using the model's tokenizer
+    # 5. Initialize Dataset and DataModule (Matched to official salm_train.py)
     dataset = SALMDataset(tokenizer=model.tokenizer)
     datamodule = DataModule(data_config, tokenizer=model.tokenizer, dataset=dataset)
 
-    # 3. Fit the model by passing BOTH the model and the datamodule to the trainer
+    # 6. Fit the model!
     trainer.fit(model, datamodule=datamodule)
+
 
 if __name__ == "__main__":
     train()
