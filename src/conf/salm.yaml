@@ -80,21 +80,23 @@ model:
     max_steps: ${trainer.max_steps}
 
 trainer:
-  devices: 1
+  devices: [1]
   accelerator: gpu
   num_nodes: 1
   precision: bf16-mixed
   logger: False # logger provided by exp_manager
   enable_checkpointing: False
   use_distributed_sampler: False
-  max_steps: 5000
-  limit_train_batches: 500
-  val_check_interval: ${trainer.limit_train_batches}
+  max_epochs: 5
+  max_steps: -1
+  # limit_train_batches: 500
+  val_check_interval: 1.0      # Run validation exactly once at the end of every epoch
+  check_val_every_n_epoch: 1
   limit_val_batches: 10
   log_every_n_steps: 10
   num_sanity_val_steps: 1
   gradient_clip_val: 1.0
-  accumulate_grad_batches: 1
+  accumulate_grad_batches: 2
   strategy: auto
 
 data:
@@ -105,7 +107,7 @@ data:
     text_field: text
     input_cfg:
       - type: lhotse_as_conversation
-        manifest_filepath: data/train_small_manifest.jsonl
+        manifest_filepath: data/train_manifest.jsonl
         audio_locator_tag: ${model.audio_locator_tag}
         tags:
           context: 'Transcribe the following:'
@@ -117,13 +119,13 @@ data:
     use_multimodal_sampling: true
     min_duration: 0.1
     min_tokens: 2
-    max_tokens: 1024
-    batch_size: 1
+    max_tokens: 512
+    batch_size: 1  # batch_size is overridden by use_bucketing and bucket_batch_size
     # bucket_duration_bins: [99,110,117,124,184,247,324,391,457,520,555,579,600,618,638]
-    # bucket_batch_size: [10, 10, 10, 10, 8, 8, 6, 4, 2, 2, 1, 1, 1, 1, 1]
-    # use_bucketing: true
-    # num_buckets: 15
-    # bucket_buffer_size: 20000
+    # bucket_batch_size: [4, 4, 4, 3, 3, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1]
+    use_bucketing: true
+    num_buckets: 15
+    bucket_buffer_size: 20000
 
   validation_ds:
     # The entries under 'datasets' are a list of separate dataloaders.
@@ -132,10 +134,10 @@ data:
     prompt_format: ${model.prompt_format}
     token_equivalent_duration: 0.08
     datasets:
-      devset_nemo_manifest:
+      word_small:
         input_cfg:
         - audio_locator_tag: ${model.audio_locator_tag}
-          manifest_filepath: data/val_small_manifest.jsonl
+          manifest_filepath: data/val_manifest.jsonl
           tags:
             context: 'Transcribe the following:'
           type: lhotse_as_conversation
@@ -146,31 +148,32 @@ data:
     shard_seed: "randomized"
 
 exp_manager:
-   exp_dir: null
+   exp_dir: output/
    explicit_log_dir: canary-qwen-2.5b-results/
    name: canary-qwen-2.5b
    create_tensorboard_logger: false
    create_checkpoint_callback: true
    use_datetime_version: true
-   max_time_per_run: 00:03:50:00
+   max_time_per_run: 10:00:00:00
 
    resume_from_checkpoint: null # The path to a checkpoint file to continue the training, restores the whole state including the epoch, step, LR schedulers, apex, etc.
    # you need to set these two to True to continue the training
-   resume_if_exists: true
+   resume_if_exists: false
    resume_ignore_no_checkpoint: true
 
    # You may use this section to create a W&B logger
-   create_wandb_logger: true
+   create_wandb_logger: true  
    wandb_logger_kwargs:
-     name: canary-qwen-2.5b-release
+     name: "canary-qwen-${now:%Y-%m-%d_%H-%M-%S}"
      project: canary-qwen-2.5b
-     resume: true
+     resume: false
 
    checkpoint_callback_params:
      filename: "{step}"
-     monitor: val_acc
-     mode: max
+     monitor: val_loss_word_small
+     mode: min
      every_n_train_steps: null
      every_n_epochs: 1
      save_top_k: 1
      always_save_nemo: false
+     save_nemo_on_train_end: false
